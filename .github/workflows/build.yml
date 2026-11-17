@@ -1,0 +1,87 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Signing key from secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secrets KEYSTORE_B64 / KEYSTORE_PASSWORD missing (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.keystore" >> $GITHUB_ENV
+
+      - name: Build APK
+        env:
+          SIGNING_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk NFC-Card-Player.apk
+          echo "VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
+
+      - name: Replace release with the same version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "V${VERSION}" -R "${{ github.repository }}" --yes --cleanup-tag || true
+          git push origin --delete "V${VERSION}" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NFC-Card-Player
+          path: |
+            NFC-Card-Player.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: V${{ env.VERSION }}
+          name: NFC Card Player V${{ env.VERSION }}
+          body: |
+            **EN:** Install `NFC-Card-Player.apk` on the phone. Optional: `cards.json` with example cards (put it into the Download folder before the first start).
+            **DE:** `NFC-Card-Player.apk` auf dem Handy installieren. Optional: `cards.json` mit Beispielkarten (vor dem ersten Start in den Download-Ordner legen).
+          files: |
+            NFC-Card-Player.apk
+            config/cards.json
+          make_latest: true
+
+      - name: Remove older releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="V${VERSION}"
+          for tag in $(gh release list -R "${{ github.repository }}" -L 500 --json tagName -q '.[].tagName'); do
+            if [ "$tag" != "$current" ]; then
+              gh release delete "$tag" -R "${{ github.repository }}" --yes --cleanup-tag || true
+            fi
+          done
+          for tag in $(git ls-remote --tags origin | awk '{print $2}' | sed 's#refs/tags/##'); do
+            if [ "$tag" != "$current" ]; then
+              git push origin --delete "$tag" || true
+            fi
+          done

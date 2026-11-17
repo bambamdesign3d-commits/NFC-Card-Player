@@ -1,0 +1,15 @@
+NFC Card Player – Open-source components / Open-Source-Komponenten
+
+Licensed under the Apache License 2.0 (full text below):
+- AndroidX Core, AppCompat, Activity, RecyclerView – © The Android Open Source Project
+- AndroidX Media3 (ExoPlayer, Session) – © The Android Open Source Project
+- Material Components for Android – © Google LLC
+- Guava – © The Guava Authors
+- Kotlin Standard Library – © JetBrains s.r.o. and Kotlin contributors
+- Material Icons "music_note" – © Google LLC
+
+Test music (card 996): own composition, no third-party rights.
+Cover pictures from the online search (iTunes Search API) or from Amazon Music / Spotify belong to their rights holders; stored locally for private use only.
+Amazon Music, Spotify, Android and NFC are trademarks of their respective owners. NFC Card Player is not affiliated with them.
+
+------------------------------------------------------------
