@@ -1,0 +1,12 @@
+{
+ "1": { "name": "Album example", "mode": "row", "folder": "/storage/emulated/0/Music/01", "statesave": "no" },
+ "2": { "name": "Music mix", "mode": "random", "folder": "/storage/emulated/0/Music/02", "statesave": "no" },
+ "3": { "name": "Radio play (one random episode)", "mode": "singlerandom", "folder": "/storage/emulated/0/Music/03" },
+ "4": { "name": "Audiobook", "mode": "row", "folder": "/storage/emulated/0/Music/04", "statesave": "yes" },
+ "5": { "name": "Favourite song", "mode": "single", "folder": "/storage/emulated/0/Music/05", "file": "001 Song.mp3", "statesave": "no" },
+ "6": { "name": "Amazon playlist", "source": "amazon", "link": "https://music.amazon.de/playlists/PLAYLIST_ID" },
+ "7": { "name": "Spotify playlist", "source": "spotify", "link": "https://open.spotify.com/playlist/PLAYLIST_ID" },
+ "997": { "name": "Freeze dance", "mode": "freezedance", "playMin": 7, "playMax": 30, "pauseMin": 3, "pauseMax": 8 },
+ "998": { "name": "Sleep timer 30 min", "mode": "timer", "minutes": 30, "fade": 30 },
+ "999": { "name": "Sleep timer 60 min", "mode": "timer", "minutes": 60, "fade": 30 }
+}

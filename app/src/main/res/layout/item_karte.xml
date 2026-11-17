@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:id="@+id/ivThumb"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="4dp"
+        android:background="?attr/selectableItemBackground"
+        android:contentDescription="Bild ändern"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_cover_placeholder" />
+
+    <TextView
+        android:id="@+id/tvNr"
+        android:layout_width="40dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textAppearance="?attr/textAppearanceTitleLarge" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+        <TextView
+            android:id="@+id/tvInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnEdit"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="Edit"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:text="✎"
+        android:textSize="18sp" />
+</LinearLayout>

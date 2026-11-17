@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NFC Card Player</string>
+    <string name="acc_desc">Drückt nach dem Auflegen einer Streaming-Karte einmal den Play-Knopf der Playlist in Amazon Music bzw. Spotify und holt danach NFC Card Player wieder nach vorn. Wird nur in diesen beiden Apps und nur direkt nach dem Auflegen einer Karte aktiv. / Presses the playlist play button in Amazon Music or Spotify once after a streaming card is scanned.</string>
+</resources>

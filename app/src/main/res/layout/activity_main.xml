@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
+    android:fitsSystemWindows="true">
+
+    <!-- Hauptinhalt: Infozeile, Status und Kartenliste (oberer Abstand wird im Code gesetzt) -->
+    <LinearLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvCard"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="Karte auflegen …"
+                android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+            <TextView
+                android:id="@+id/tvTrack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:singleLine="true"
+                android:textAppearance="?attr/textAppearanceBodySmall" />
+
+            <TextView
+                android:id="@+id/tvTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:singleLine="true"
+                android:textAppearance="?attr/textAppearanceBodySmall" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+        <Button
+            android:id="@+id/btnPermission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Speicherzugriff erlauben" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCards"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="4dp"
+            android:layout_weight="1" />
+    </LinearLayout>
+
+    <!-- Knöpfe rechts oben: Einstellungen zuerst -->
+    <LinearLayout
+        android:id="@+id/topButtons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnPlayerSettings"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="112dp"
+                android:layout_height="44dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="Einstellungen"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnBox"
+                android:layout_width="112dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="Box-Modus"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnRotate"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="112dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="Hochformat"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnReload"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="112dp"
+                android:layout_height="44dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="Neu laden"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnAdd"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="112dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="+ Karte"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Kompakte Player-Leiste: Bild links, oben Kartenname/Stoptanz, unten Titel -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/playerCard"
+        android:layout_width="200dp"
+        android:layout_height="80dp"
+        android:layout_gravity="top|start"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/ivCover"
+                android:layout_width="80dp"
+                android:layout_height="match_parent"
+                android:contentDescription="Bild"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_cover_placeholder" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingStart="6dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="3dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvTop"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:singleLine="true"
+                        android:text="Karte auflegen"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <de.bambamdesign3d.nfccardplayer.BatteryView
+                        android:id="@+id/battery"
+                        android:layout_width="24dp"
+                        android:layout_height="12dp"
+                        android:layout_marginStart="4dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvLine2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:textColor="#E65100"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPrev"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:insetTop="2dp"
+                        android:insetBottom="2dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        app:cornerRadius="8dp"
+                        app:icon="@drawable/ic_prev"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="32dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPlay"
+                        style="@style/Widget.Material3.Button.UnelevatedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="4dp"
+                        android:insetTop="2dp"
+                        android:insetBottom="2dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        app:cornerRadius="8dp"
+                        app:icon="@drawable/ic_play"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="36dp"
+                        android:scaleX="0.95"
+                        android:scaleY="0.95" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnNext"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:insetTop="2dp"
+                        android:insetBottom="2dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        app:cornerRadius="8dp"
+                        app:icon="@drawable/ic_next"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="32dp" />
+
+                </LinearLayout>
+
+                <de.bambamdesign3d.nfccardplayer.MarqueeTextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <ProgressBar
+                    android:id="@+id/pbMini"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_marginTop="1dp"
+                    android:max="1000" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>
