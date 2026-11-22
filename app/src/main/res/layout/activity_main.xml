@@ -148,7 +148,53 @@
                 android:padding="0dp"
                 android:text="+ Karte"
                 android:textSize="13sp" />
+
+            <!-- remote mode: volume of the controlled box (below "Exit remote") -->
+            <LinearLayout
+                android:id="@+id/remoteVol"
+                android:layout_width="112dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <Button
+                    android:id="@+id/btnVolDown"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    android:text="− Vol"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnVolUp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    android:text="+ Vol"
+                    android:textSize="12sp" />
+            </LinearLayout>
         </LinearLayout>
+
+        <!-- remote mode: connection status + name of the controlled box -->
+        <TextView
+            android:id="@+id/tvRemoteStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="6dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
 
     <!-- Kompakte Player-Leiste: Bild links, oben Kartenname/Stoptanz, unten Titel -->

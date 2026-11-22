@@ -25,6 +25,15 @@ object CoverStore {
 
     fun has(ctx: Context, nr: Int) = file(ctx, nr).exists()
 
+    /** Raw JPEG of a card picture (for remote sync). */
+    fun bytes(ctx: Context, nr: Int): ByteArray? = file(ctx, nr).takeIf { it.exists() }?.readBytes()
+
+    @Synchronized
+    fun putBytes(ctx: Context, nr: Int, data: ByteArray) {
+        file(ctx, nr).writeBytes(data)
+        cache.remove(nr)
+    }
+
     @Synchronized
     fun get(ctx: Context, nr: Int): Bitmap? {
         if (cache.containsKey(nr)) return cache[nr]

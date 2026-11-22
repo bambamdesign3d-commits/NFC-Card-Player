@@ -73,6 +73,12 @@
             android:exported="false"
             android:label="NFC Card Player" />
 
+        <activity
+            android:name=".RemoteActivity"
+            android:exported="false"
+            android:label="NFC Card Player"
+            android:windowSoftInputMode="adjustResize" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

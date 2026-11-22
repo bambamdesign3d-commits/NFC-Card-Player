@@ -12,6 +12,7 @@ import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
+import org.json.JSONObject
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -111,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         i ?: return
         val lvl = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
         val scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100)
+        if (remoteMode) return   // remote mode shows the box's battery
         if (lvl >= 0 && scale > 0) battery.level = lvl * 100 / scale
         val st = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
         battery.charging = st == android.os.BatteryManager.BATTERY_STATUS_CHARGING || st == android.os.BatteryManager.BATTERY_STATUS_FULL
@@ -159,7 +161,7 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             val idleMs = SystemClock.elapsedRealtime() - lastInteraction
             if (boxOverlay == null) {
-                if (!firstSession && AppPrefs.autoBox(this@MainActivity) && isFront && hasWindowFocus() && pendingWrite == null && idleMs > 30_000) enterBox()
+                if (!firstSession && !remoteMode && AppPrefs.autoBox(this@MainActivity) && isFront && hasWindowFocus() && pendingWrite == null && idleMs > 30_000) enterBox()
             } else if (boxAwake) {
                 if (idleMs > 15_000) dimBox()   // awake box mode: dark again after 15 s
             } else {
@@ -332,6 +334,7 @@ class MainActivity : AppCompatActivity() {
         topButtons.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateContentPadding() }
 
         btnPlay.setOnClickListener {
+            if (remoteMode) { remoteSend("toggle"); return@setOnClickListener }
             if (currentCard?.isStream == true) { streamControl(0); return@setOnClickListener }
             val c = controller ?: return@setOnClickListener
             if (c.isPlaying) c.pause() else {
@@ -340,11 +343,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         btnPrev.setOnClickListener {
+            if (remoteMode) { remoteSend("prev"); return@setOnClickListener }
             if (currentCard?.isStream == true) { streamControl(-1); return@setOnClickListener }
             val c = controller ?: return@setOnClickListener
             if (c.currentPosition > 5000 || !c.hasPreviousMediaItem()) c.seekTo(0) else c.seekToPreviousMediaItem()
         }
         btnNext.setOnClickListener {
+            if (remoteMode) { remoteSend("next"); return@setOnClickListener }
             if (currentCard?.isStream == true) { streamControl(1); return@setOnClickListener }
             controller?.takeIf { it.hasNextMediaItem() }?.seekToNextMediaItem()
         }
@@ -369,16 +374,16 @@ class MainActivity : AppCompatActivity() {
         })
 
         adapter = CardAdapter(
-            onPlay = { playCard(it) },
-            onLong = { editor.show(it) },
-            onImage = { coverMenu(it) },
-            coverOf = { CoverStore.get(this, it.number) },
+            onPlay = { if (remoteMode) remoteSend("card", it.number) else playCard(it) },
+            onLong = { if (remoteMode) remoteOnly() else editor.show(it) },
+            onImage = { if (remoteMode) remoteOnly() else coverMenu(it) },
+            coverOf = { if (remoteMode) Remote.Covers.get(this, it.number) else CoverStore.get(this, it.number) },
             countOf = { fileCount[it.number] ?: 0 }
         )
         editor = CardEditor(this, onSaved = { loadCards(showToast = false) }, onWrite = { startWrite(it) })
         imageSearch = ImageSearch(this) { coverNr = -1; adapter.notifyDataSetChanged() }
         handler.postDelayed(idleCheck, 10_000)
-        btnAdd.setOnClickListener { editor.show(null) }
+        btnAdd.setOnClickListener { if (remoteMode) remoteOnly() else editor.show(null) }
         findViewById<RecyclerView>(R.id.rvCards).apply {
             layoutManager = GridLayoutManager(this@MainActivity, spanCount())
             adapter = this@MainActivity.adapter
@@ -397,6 +402,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
         VolumeLimit.register(this)
+        Remote.start(this)
         lastOffState = Schedule.isOffTime(this)
         handler.postDelayed(nightCheck, 60_000)
         Schedule.reschedule(this)
@@ -431,7 +437,13 @@ class MainActivity : AppCompatActivity() {
         btnNext = findViewById(R.id.btnNext)
         btnBox = findViewById(R.id.btnBox)
         btnRotate = findViewById(R.id.btnRotate)
-        btnRotate.visibility = View.GONE // orientation is automatic (box mode: always landscape)
+        // former rotate button = "Remote mode" button (only when a box is connected)
+        btnRotate.setOnClickListener { setRemote(!remoteMode) }
+        remoteVol = findViewById(R.id.remoteVol)
+        tvRemoteStatus = findViewById(R.id.tvRemoteStatus)
+        tvRemoteStatus.setOnClickListener { startActivity(Intent(this, RemoteActivity::class.java)) }
+        findViewById<View>(R.id.btnVolDown).setOnClickListener { remoteSend("voldown") }
+        findViewById<View>(R.id.btnVolUp).setOnClickListener { remoteSend("volup") }
         btnReload = findViewById(R.id.btnReload)
         btnSettings = findViewById(R.id.btnPlayerSettings)
         btnAdd = findViewById(R.id.btnAdd)
@@ -448,6 +460,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateToggleTexts() {
         btnBox.text = if (boxOverlay == null) t("Box-Modus", "Box mode") else t("Box beenden", "Exit box")
+        btnRotate.text = if (remoteMode) t("Remote beenden", "Exit remote") else t("Remote-Modus", "Remote mode")
+        btnRotate.visibility = if (Remote.active(this) != null) View.VISIBLE else View.GONE
+        remoteVol.visibility = if (remoteMode) View.VISIBLE else View.GONE
+        tvRemoteStatus.visibility = if (remoteMode) View.VISIBLE else View.GONE
+        btnBox.isEnabled = !remoteMode
+        btnBox.alpha = if (remoteMode) 0.4f else 1f
     }
 
     private fun spanCount() =
@@ -486,6 +504,9 @@ class MainActivity : AppCompatActivity() {
         loadCards(showToast = false)
         btnPermission.visibility = if (hasStorageAccess()) View.GONE else View.VISIBLE
         enableReader()
+        remoteMode = Remote.remoteMode(this)
+        updateToggleTexts()
+        if (remoteMode) { handler.removeCallbacks(remotePoll); handler.post(remotePoll) }
         handler.removeCallbacks(ticker)
         if (boxOverlay == null || playerPrefs.imBoxModus) handler.post(ticker)
     }
@@ -577,6 +598,7 @@ class MainActivity : AppCompatActivity() {
         // very first start: no box mode (and no automatic box mode) – the app is being set up
         firstSession = !AppPrefs.prefs(this).getBoolean("launchedBefore", false)
         if (firstSession) AppPrefs.set(this, "launchedBefore", true)
+        else if (Remote.remoteMode(this)) rootLayout.post { setRemote(true) }
         else if (AppPrefs.startBox(this)) rootLayout.post { enterBox() }
         else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
@@ -661,8 +683,199 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------------- playback
 
+    // ---------------------------------------------------------------- volume key held 2 s = music off
+
+    private var volKeyVolume = -1
+    private var volLongDone = false
+    private fun restoreVolume() {
+        if (volKeyVolume >= 0) try {
+            getSystemService(android.media.AudioManager::class.java).setStreamVolume(android.media.AudioManager.STREAM_MUSIC, volKeyVolume, 0)
+        } catch (_: Exception) {}
+    }
+    private val volLongPress = Runnable {
+        val audio = getSystemService(android.media.AudioManager::class.java)
+        // back to the volume from before holding the key; further key repeats are ignored until release
+        volLongDone = true
+        restoreVolume()
+        if (remoteMode) remoteSend("pause")
+        else if (audio.isMusicActive) StreamStarter.key(this, android.view.KeyEvent.KEYCODE_MEDIA_PAUSE)
+        status(t("Musik aus (Lautstärketaste gehalten)", "Music off (volume key held)"))
+    }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val k = event.keyCode
+        if (k == android.view.KeyEvent.KEYCODE_VOLUME_UP || k == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+            lastInteraction = SystemClock.elapsedRealtime()
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                volKeyVolume = getSystemService(android.media.AudioManager::class.java).getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                volLongDone = false
+                handler.removeCallbacks(volLongPress)
+                handler.postDelayed(volLongPress, 2000)
+            } else if (event.action == android.view.KeyEvent.ACTION_UP) {
+                handler.removeCallbacks(volLongPress)
+                val done = volLongDone
+                if (done) restoreVolume()
+                volKeyVolume = -1; volLongDone = false
+                if (done) return true
+            } else if (volLongDone) {
+                return true   // still held after the pause: do not change the volume any further
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    // ---------------------------------------------------------------- remote mode (this phone controls a box)
+
+    private var remoteMode = false
+    private lateinit var remoteVol: View
+    private lateinit var tvRemoteStatus: TextView
+    private var remoteInfo: JSONObject? = null
+    private var remoteOk = false
+    private var remoteFails = 0
+    private var remoteCards: List<Card> = emptyList()
+    private var remoteCardsAt = 0L
+
+    private fun remoteOnly() = status(t("Im Remote-Modus werden die Karten auf der Box bearbeitet", "In remote mode, cards are edited on the box"))
+
+    /** Load the card list (and missing pictures) of the box. */
+    private fun refreshRemoteCards() {
+        remoteCardsAt = SystemClock.elapsedRealtime()
+        Thread {
+            val r = Remote.fetchCards(this) ?: return@Thread
+            runOnUiThread { if (remoteMode) { remoteCards = r.first; cards = r.first.associateBy { it.number }; loadCards(false) } }
+            if (Remote.Covers.fetchMissing(this, r.second)) runOnUiThread { if (remoteMode) { coverNr = -1; adapter.notifyDataSetChanged() } }
+        }.start()
+    }
+
+    private fun setRemote(on: Boolean) {
+        if (on && Remote.active(this) == null) return
+        remoteMode = on
+        Remote.setRemoteMode(this, on)
+        if (on) {
+            exitBox()
+            // display may follow the normal screen timeout, no special handling needed
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            remoteInfo = null; remoteFails = 0
+            remoteCards = emptyList(); adapter.submit(remoteCards)
+            refreshRemoteCards()
+            handler.removeCallbacks(remotePoll); handler.post(remotePoll)
+            status(t("Remote-Modus: Karten spielen auf „${Remote.active(this)?.name}“", "Remote mode: cards play on “${Remote.active(this)?.name}”"))
+        } else {
+            handler.removeCallbacks(remotePoll)
+            coverNr = -1
+            CardStore.invalidate(); loadCards(false)
+            battery.level = getSystemService(android.os.BatteryManager::class.java)
+                .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY).coerceIn(0, 100)
+            status(t("Remote-Modus beendet", "Remote mode ended"))
+        }
+        updateToggleTexts()
+        updateUi()
+    }
+
+    private val remotePoll = object : Runnable {
+        override fun run() {
+            if (!remoteMode) return
+            Thread {
+                val r = Remote.fetchInfo(this@MainActivity) ?: Remote.fetchInfo(this@MainActivity)   // one quick retry
+                runOnUiThread {
+                    if (r != null) { remoteInfo = r; remoteFails = 0 } else remoteFails++
+                    remoteOk = remoteFails < 3          // "not reachable" only after several failed attempts
+                    if (r != null && (remoteCards.isEmpty() || SystemClock.elapsedRealtime() - remoteCardsAt > 30_000)) refreshRemoteCards()
+                    updateUi()
+                }
+            }.start()
+            handler.postDelayed(this, if (isFront) 2000 else 6000)
+        }
+    }
+
+    private fun remoteSend(action: String, nr: Int = -1) {
+        lastInteraction = SystemClock.elapsedRealtime()
+        Remote.send(this, action, nr) { ok ->
+            if (!ok) status(t("Box nicht erreichbar", "Box not reachable"))
+            else if (action == "card") status(t("Karte $nr läuft auf der Box", "Card $nr playing on the box"))
+            handler.postDelayed({ handler.removeCallbacks(remotePoll); handler.post(remotePoll) }, 600)
+        }
+    }
+
+    /** Player bar shows exactly what the controlled box shows (incl. timer / freeze dance). */
+    private fun updateRemoteUi() {
+        val box = Remote.active(this)?.name ?: "Box"
+        val r = remoteInfo
+        tvRemoteStatus.text = if (remoteOk) t("🟢 Verbunden: $box", "🟢 Connected: $box") else t("🔴 Nicht erreichbar: $box – tippen", "🔴 Not reachable: $box – tap")
+        tvRemoteStatus.setTextColor(if (remoteOk) Color.rgb(0x2E, 0x9D, 0x4A) else Color.rgb(0xD3, 0x2F, 0x2F))
+        val nr = r?.optInt("card", -1) ?: -1
+        tvCard.text = if (nr > 0) "%02d · %s".format(nr, r?.optString("cardName").orEmpty()) else "📻 $box"
+        val top = r?.optString("top").orEmpty().ifBlank { "📻 $box" }
+        if (tvTop.text.toString() != top) tvTop.text = top
+        val line2 = r?.optString("line2").orEmpty()
+        if (tvLine2.text.toString() != line2) tvLine2.text = line2
+        tvLine2.visibility = if (line2.isEmpty()) View.GONE else View.VISIBLE
+        val title = r?.optString("title").orEmpty()
+        if (tvTitle.text.toString() != title) tvTitle.text = title
+        tvTrack.text = r?.optString("track").orEmpty()
+        tvTime.text = r?.optString("time").orEmpty()
+        pbMini.progress = r?.optInt("progress", 0) ?: 0
+        setPlayIcon(r?.optBoolean("playing") == true)
+        r?.optInt("battery", -1)?.takeIf { it in 0..100 }?.let { battery.level = it; battery.charging = false }
+        if (coverNr != nr) {
+            coverNr = nr
+            val b = if (nr > 0) Remote.Covers.get(this, nr) ?: CoverStore.get(this, nr) else null
+            if (b != null) ivCover.setImageBitmap(b) else ivCover.setImageResource(R.drawable.ic_cover_placeholder)
+        }
+    }
+
+    // ---------------------------------------------------------------- remote control (2nd phone)
+
+    /** Player state for the remote phone. */
+    fun remoteStatus(): JSONObject {
+        val o = JSONObject()
+            .put("title", tvTitle.text?.toString() ?: "")
+            .put("card", currentCard?.number ?: -1)
+            .put("cardName", currentCard?.title() ?: "")
+            .put("track", tvTrack.text?.toString() ?: "")
+            .put("top", tvTop.text?.toString() ?: "")
+            .put("line2", if (tvLine2.visibility == View.VISIBLE) tvLine2.text?.toString() ?: "" else "")
+            .put("time", tvTime.text?.toString() ?: "")
+            .put("progress", pbMini.progress)
+        val c = controller
+        if (c != null && currentCard?.isStream != true && c.mediaItemCount > 0) {
+            o.put("pos", c.currentPosition)
+            if (c.duration != C.TIME_UNSET && c.duration > 0) o.put("dur", c.duration)
+        }
+        return o
+    }
+
+    fun remoteCommand(action: String, nr: Int) {
+        val audio = getSystemService(android.media.AudioManager::class.java)
+        when (action) {
+            "toggle" -> btnPlay.performClick()
+            "pause" -> StreamStarter.key(this, android.view.KeyEvent.KEYCODE_MEDIA_PAUSE)
+            "prev" -> btnPrev.performClick()
+            "next" -> btnNext.performClick()
+            "card" -> if (nr > 0) onCardScanned(nr, force = true)
+            "volup" -> { audio.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_RAISE, 0); VolumeLimit.apply(this) }
+            "voldown" -> audio.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_LOWER, 0)
+        }
+    }
+
+    /** Cards/settings were replaced by the 2nd phone: reload everything. */
+    fun onRemoteImported() {
+        CardStore.invalidate()
+        loadCards(showToast = false)
+        playerPrefs = PlayerPrefs.load(this)
+        applyPlayerLayout()
+        applyCardTheme()
+        status(t("Karten und Einstellungen vom 2. Handy übernommen", "Cards and settings received from the 2nd phone"))
+    }
+
     private fun onCardScanned(nr: Int, force: Boolean = false) {
         val now = SystemClock.elapsedRealtime()
+        if (remoteMode && pendingWrite == null) {
+            if (nr == lastScanNr && now - lastScanTime < 2500) return
+            lastScanNr = nr; lastScanTime = now
+            remoteSend("card", nr)
+            return
+        }
         // card still inserted and found again (e.g. back from Amazon/Spotify): keep the stream running
         val known = cards[nr]
         if (!force && known != null && known.isStream && currentCard?.number == nr &&
@@ -822,6 +1035,11 @@ class MainActivity : AppCompatActivity() {
     // ---------------------------------------------------------------- cards
 
     private fun loadCards(showToast: Boolean) {
+        adapter.remote = remoteMode
+        if (remoteMode) {   // remote mode: the list of the controlled box
+            adapter.submit(remoteCards)
+            return
+        }
         val list = CardStore.load(this)
         cards = list.associateBy { it.number }
         fileCount.clear()
@@ -855,11 +1073,13 @@ class MainActivity : AppCompatActivity() {
             menu.add(0, 1, 2, t("Player-Leiste anpassen (Größe, Position, Farben)", "Adjust player bar (size, position, colours)"))
             menu.add(0, 3, 3, t("Karten aus JSON importieren", "Import cards from JSON"))
             menu.add(0, 4, 4, t("Karten als JSON exportieren", "Export cards as JSON"))
+            menu.add(0, 6, 5, t("Fernbedienung & Sync (2. Handy)", "Remote control & sync (2nd phone)"))
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     1 -> showPlayerSettings()
                     2 -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                     5 -> startActivity(Intent(this@MainActivity, AmazonActivity::class.java))
+                    6 -> startActivity(Intent(this@MainActivity, RemoteActivity::class.java))
                     3 -> importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*"))
                     4 -> try {
                         CardStore.exportTo(this@MainActivity, CardJson.exportFile)
@@ -942,7 +1162,7 @@ class MainActivity : AppCompatActivity() {
      * brightness. The player bar and the buttons stay visible (dimmed).
      */
     private fun enterBox() {
-        if (boxOverlay != null) return
+        if (boxOverlay != null || remoteMode) return
         applyOrientationFor(box = true) // box mode always in landscape
         val hint = TextView(this).apply {
             text = t("Box-Modus · Karte auflegen\nantippen = heller, nochmal tippen = beenden", "Box mode · scan a card\ntap = brighter, tap again = exit")
@@ -1181,6 +1401,7 @@ class MainActivity : AppCompatActivity() {
     // ---------------------------------------------------------------- UI update
 
     private fun updateUi() {
+        if (remoteMode) { updateRemoteUi(); return }
         val c = controller
         val k = currentCard
         tvCard.text = if (k != null) "%02d · %s".format(k.number, k.title()) else t("Karte auflegen …", "Scan a card …")
@@ -1247,6 +1468,8 @@ class MainActivity : AppCompatActivity() {
     ) : RecyclerView.Adapter<CardAdapter.VH>() {
 
         private var items: List<Card> = emptyList()
+        /** remote mode: list of the box – no edit pencil, no local file check */
+        var remote = false
 
         fun submit(list: List<Card>) {
             items = list
@@ -1271,6 +1494,7 @@ class MainActivity : AppCompatActivity() {
             h.nr.text = "%02d".format(k.number)
             h.name.text = k.title()
             h.edit.setOnClickListener { onLong(k) }
+            h.edit.visibility = if (remote) View.GONE else View.VISIBLE
             val b = coverOf(k)
             if (b != null) h.thumb.setImageBitmap(b) else h.thumb.setImageResource(R.drawable.ic_cover_placeholder)
             h.thumb.setOnClickListener { onImage(k) }
@@ -1282,7 +1506,8 @@ class MainActivity : AppCompatActivity() {
                     val n = countOf(k)
                     val folder = k.folder?.substringAfterLast("/Music/", k.folder) ?: "?"
                     val what = if (k.mode == MODE_SINGLE) (k.file ?: "?") else t("$n Dateien", "$n files")
-                    if (n == 0) "Music/$folder · ⚠ " + t("keine Dateien gefunden", "no files found")
+                    if (remote) "Music/$folder · ${k.label()}"
+                    else if (n == 0) "Music/$folder · ⚠ " + t("keine Dateien gefunden", "no files found")
                     else "Music/$folder · $what · ${k.label()}"
                 }
             }
